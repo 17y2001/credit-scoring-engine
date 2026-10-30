@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class KafkaProducerService {
 
+    @Autowired
     private KafkaTemplate<String, String> kafkaTemplate ;
 
     public void sendForScoring(String userId, String transactionJson){

@@ -26,7 +26,9 @@ public class KafkaConsumerService {
     @Autowired
     private KafkaProducerService kafkaProducerService;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+            .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     @KafkaListener(topics = "raw-statements", groupId = "credit-scoring-group")
     public void processStatement(

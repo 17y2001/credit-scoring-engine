@@ -7,6 +7,9 @@ import com.yash.credit_scoring_engine.repository.CreditReportRepository;
 import com.yash.credit_scoring_engine.service.KafkaProducerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import com.yash.credit_scoring_engine.service.PdfParserService;
+import org.springframework.web.multipart.MultipartFile;
+import java.util.List;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,7 +24,12 @@ public class CreditScoringController {
     @Autowired
     private CreditReportRepository creditReportRepository;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    private PdfParserService pdfParserService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+            .disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     @PostMapping("/analyze/{userId}")
     public String analyzeStatement(
@@ -50,6 +58,27 @@ public class CreditScoringController {
             );
         } else {
             return "No credit report found for userId: " + userId;
+        }
+    }
+
+    @PostMapping("/upload/{userId}")
+    public String uploadPdf(@PathVariable String userId,
+                            @RequestParam("file") MultipartFile file) {
+        try {
+            List<Transaction> transactions = pdfParserService.parseBankStatement(
+                    file.getInputStream(), userId);
+
+            if (transactions.isEmpty()) {
+                return "No transactions found in PDF!";
+            }
+
+            String transactionsJson = objectMapper.writeValueAsString(transactions);
+            kafkaProducerService.sendForScoring(userId, transactionsJson);
+
+            return "PDF uploaded! Found " + transactions.size() +
+                    " transactions for userId: " + userId + ". Score is being calculated...";
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
         }
     }
 }
